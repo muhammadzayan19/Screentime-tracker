@@ -12,6 +12,8 @@ import {
   hasPermission,
   openPermissionSettings,
   isSupported,
+  getDebugInfo,
+  UsageDebugInfo,
 } from "../api/usageStats";
 import { refreshToday, backfillHistory } from "../storage/history";
 import { DayHistory } from "../types";
@@ -22,6 +24,8 @@ export default function TodayScreen() {
   const [granted, setGranted] = useState<boolean | null>(null);
   const [day, setDay] = useState<DayHistory>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [debug, setDebug] = useState<UsageDebugInfo | null>(null);
 
   const load = useCallback(async () => {
     if (!isSupported()) {
@@ -31,10 +35,19 @@ export default function TodayScreen() {
     const ok = await hasPermission();
     setGranted(ok);
     if (ok) {
-      const [today] = await Promise.all([refreshToday(), backfillHistory()]);
-      setDay(today);
+      try {
+        setLoadError(null);
+        const [today] = await Promise.all([refreshToday(), backfillHistory()]);
+        setDay(today);
+      } catch (e: any) {
+        setLoadError(String(e?.message ?? e));
+      }
     }
   }, []);
+
+  const runDebug = async () => {
+    setDebug(await getDebugInfo());
+  };
 
   useEffect(() => {
     load();
@@ -103,9 +116,28 @@ export default function TodayScreen() {
         <AppUsageRow packageName={pkg} ms={ms} maxMs={maxMs} />
       )}
       ListEmptyComponent={
-        <Text style={styles.body}>
-          No usage recorded yet today. Pull to refresh after using some apps.
-        </Text>
+        <View>
+          {loadError && (
+            <Text style={[styles.body, styles.errorText]}>
+              Error loading usage: {loadError}
+            </Text>
+          )}
+          <Text style={styles.body}>
+            No usage recorded yet today. Pull to refresh after using some apps.
+          </Text>
+          <Pressable style={styles.linkButton} onPress={runDebug}>
+            <Text style={styles.linkText}>Run diagnostics</Text>
+          </Pressable>
+          {debug && (
+            <View style={styles.debugBox}>
+              <Text style={styles.debugText}>permission: {String(debug.permission)}</Text>
+              <Text style={styles.debugText}>rawType: {debug.rawType}</Text>
+              <Text style={styles.debugText}>parsedCount: {debug.parsedCount}</Text>
+              {debug.error && <Text style={styles.debugText}>error: {debug.error}</Text>}
+              <Text style={styles.debugText}>preview: {debug.rawPreview}</Text>
+            </View>
+          )}
+        </View>
       }
     />
   );
@@ -129,4 +161,12 @@ const styles = StyleSheet.create({
   header: { marginBottom: 20 },
   totalLabel: { fontSize: 14, color: "#666" },
   totalValue: { fontSize: 32, fontWeight: "700", color: "#1a1a1a" },
+  errorText: { color: "#c0392b", marginBottom: 10 },
+  debugBox: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+  },
+  debugText: { fontSize: 12, color: "#333", fontFamily: "monospace", marginBottom: 4 },
 });

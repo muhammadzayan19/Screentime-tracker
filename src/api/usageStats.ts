@@ -7,15 +7,6 @@ import {
 } from "@brighthustle/react-native-usage-stats-manager";
 import { AppUsage } from "../types";
 
-/**
- * Android exposes per-app foreground time via UsageStatsManager, gated
- * behind a special "Usage access" permission the user must grant manually
- * in system Settings (it can't be requested through a normal permission
- * dialog). iOS does not expose this data to third-party apps at all
- * (Apple's Screen Time / DeviceActivity APIs are locked to entitlement-
- * gated parental-control use cases), so this module is Android-only.
- */
-
 export function isSupported(): boolean {
   return Platform.OS === "android";
 }
@@ -34,9 +25,51 @@ export function openPermissionSettings(): void {
   showUsageAccessSettings("");
 }
 
-/**
- * Returns per-app foreground usage (ms) for the half-open range [start, end).
- */
+export type UsageDebugInfo = {
+  permission: boolean;
+  rawType: string;
+  rawPreview: string;
+  parsedCount: number;
+  error: string | null;
+};
+
+export async function getDebugInfo(): Promise<UsageDebugInfo> {
+  const permission = await hasPermission();
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+
+  try {
+    const raw = await queryUsageStats(
+      EventFrequency.INTERVAL_DAILY,
+      start.getTime(),
+      now.getTime()
+    );
+    const rawType = Array.isArray(raw) ? "array" : typeof raw;
+    const rawPreview = JSON.stringify(raw)?.slice(0, 300) ?? "null";
+    const list: any[] = Array.isArray(raw)
+      ? raw
+      : typeof raw === "string"
+      ? JSON.parse(raw || "[]")
+      : [];
+    return {
+      permission,
+      rawType,
+      rawPreview,
+      parsedCount: list.length,
+      error: null,
+    };
+  } catch (e: any) {
+    return {
+      permission,
+      rawType: "error",
+      rawPreview: "",
+      parsedCount: 0,
+      error: String(e?.message ?? e),
+    };
+  }
+}
+
 export async function getUsageForRange(
   start: Date,
   end: Date
@@ -49,9 +82,11 @@ export async function getUsageForRange(
     end.getTime()
   );
 
-  // The native module returns an array (sometimes stringified JSON
-  // depending on platform version), normalize both shapes.
-  const list: any[] = Array.isArray(raw) ? raw : JSON.parse(raw ?? "[]");
+  const list: any[] = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+    ? JSON.parse(raw || "[]")
+    : [];
 
   const byPackage = new Map<string, number>();
   for (const entry of list) {

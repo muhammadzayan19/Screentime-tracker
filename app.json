@@ -11,7 +11,9 @@
     },
     "android": {
       "package": "com.zayan.screentime",
-      "permissions": ["android.permission.PACKAGE_USAGE_STATS"]
+      "permissions": [
+        "android.permission.PACKAGE_USAGE_STATS"
+      ]
     },
     "plugins": [
       [
@@ -22,6 +24,11 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "10fafd13-96b2-4498-b32f-d2c1b6cb8fc4"
+      }
+    }
   }
 }
