@@ -5,9 +5,23 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#ffffff",
+      "resizeMode": "contain"
+    },
     "android": {
       "package": "com.zayan.screentime",
       "permissions": ["android.permission.PACKAGE_USAGE_STATS"]
-    }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.8.10"
+          }
+        }
+      ]
+    ]
   }
 }
